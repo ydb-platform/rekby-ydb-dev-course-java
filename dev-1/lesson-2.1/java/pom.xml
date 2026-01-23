@@ -36,18 +36,6 @@
             <artifactId>ydb-sdk-query</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>tech.ydb.auth</groupId>
-            <artifactId>yc-auth-provider</artifactId>
-        </dependency>
-
-        <!-- Needed for YDB's gRPC transport -->
-        <dependency>
-            <groupId>io.grpc</groupId>
-            <artifactId>grpc-netty-shaded</artifactId>
-            <version>1.60.1</version> <!-- This version is OK for YDB 2.3.8 -->
-        </dependency>
-
         <!-- Logging with Log4j over SLF4J -->
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
@@ -83,33 +71,22 @@
                 </configuration>
             </plugin>
 
-            <!-- Shade plugin to build fat JAR -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
+                <version>3.5.3</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
-                        <goals><goal>shade</goal></goals>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <filters>
-                                <!-- Exclude signature files to avoid SecurityException -->
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
                             <transformers>
-                                <!-- Merge service files so ServiceLoader works -->
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                                <!-- Set the correct main class -->
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>tech.ydb.app.Application</mainClass>
                                 </transformer>
                             </transformers>

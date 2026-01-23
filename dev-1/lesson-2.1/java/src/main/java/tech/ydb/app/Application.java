@@ -3,7 +3,6 @@ package tech.ydb.app;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.common.transaction.TxMode;
-import tech.ydb.core.auth.EnvironAuthProvider;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.query.QueryClient;
 import tech.ydb.query.tools.QueryReader;
@@ -22,15 +21,13 @@ public class Application {
      * Строка подключения к локальной базе данных YDB
      * Формат: grpc://<хост>:<порт>/<путь к базе данных>
      */
-    private static final String CONNECTION_STRING = "grpcs://lb.etnbl54v62l9q2n3nae6.ydb.mdb.yandexcloud.net:2135/ru-central1/b1gr3pr7d18v5t9o681u/etnbl54v62l9q2n3nae6";
-//    private static final String CONNECTION_STRING = "grpc://127.0.0.1:2136/local";
+    private static final String CONNECTION_STRING = "grpc://127.0.0.1:2136/local";
 
     public static void main(String[] args) {
         // Создаем драйвер для подключения к YDB через gRPC
         try (GrpcTransport grpcTransport = GrpcTransport
                 .forConnectionString(CONNECTION_STRING)
                 .withConnectTimeout(Duration.ofSeconds(10))
-                .withAuthProvider(new EnvironAuthProvider())
                 .build()
         ) {
             // Создаем клиент для выполнения SQL-запросов

@@ -72,10 +72,8 @@ public class IssueYdbRepository {
         // Этот режим сообщает серверу, что это транзакция только для чтения.
         // Это позволяет снизить накладные расходы на подготовку к изменениям и просто читать данные из 
         // одного снимка базы данных.
-        var resultSet = queryServiceHelper.executeQuery(
-                "DECLARE $prefix AS Text; SELECT id, title, created_at FROM issues WHERE title LIKE $prefix;",
-                TxMode.SNAPSHOT_RO,
-                Params.of("$prefix", PrimitiveValue.newText("Ticket 1")));
+        var resultSet = queryServiceHelper.executeQuery("SELECT id, title, created_at FROM issues;",
+                TxMode.SNAPSHOT_RO, Params.empty());
 
         var resultSetReader = resultSet.getResultSet(0);
 
