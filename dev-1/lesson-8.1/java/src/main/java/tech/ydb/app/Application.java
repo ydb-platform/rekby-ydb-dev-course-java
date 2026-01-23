@@ -29,9 +29,10 @@ public class Application {
             schemaYdbRepository.dropSchema();
             schemaYdbRepository.createSchema();
             issueYdbRepository.saveAll(List.of(
-                    new TitleAuthor("Ticket 1", "Author 1"),
-                    new TitleAuthor("Ticket 2", "Author 2"),
-                    new TitleAuthor("Ticket 3", "Author 3"))
+                    "Ticket 1",
+                    "Ticket 2",
+                    "Ticket 3"
+                )
             );
 
             var allTickets = issueYdbRepository.findAll();

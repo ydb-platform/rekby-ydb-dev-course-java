@@ -30,13 +30,15 @@ public class Application {
                 schemaYdbRepository.dropSchema();
                 schemaYdbRepository.createSchema();
 
-                issueYdbRepository.addIssue("Ticket 1");
+                var firstIssue = issueYdbRepository.addIssue("Ticket 1");
                 issueYdbRepository.addIssue("Ticket 2");
                 issueYdbRepository.addIssue("Ticket 3");
 
                 for (var issue : issueYdbRepository.findAll()) {
                     LOGGER.info("Issue: {}", issue);
                 }
+
+                LOGGER.info("First issue: {}", issueYdbRepository.findById(firstIssue.id()));
             }
         }
     }

@@ -11,9 +11,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.common.transaction.TxMode;
+import tech.ydb.core.Result;
 import tech.ydb.core.Status;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.query.QueryClient;
@@ -67,7 +69,7 @@ public class Application {
             String currentDirectory = System.getProperty("user.dir");
             var pathFile = Path.of(currentDirectory, PATH);
             var lines = Files.readAllLines(pathFile);
-            var readerJob = CompletableFuture.runAsync(() -> runTransactionReadJob(lines.size(), reader, retryCtx));
+            var readerJob = CompletableFuture.runAsync(() -> runTransactionReadJob(reader, retryCtx));
             var queryReader = queryServiceHelper.executeQuery("""
                             DECLARE $name AS Text;
                             SELECT line_num FROM write_file_progress
@@ -129,7 +131,6 @@ public class Application {
                                     tx.executeQuery("""
                                                     DECLARE $name AS Text;
                                                     DECLARE $line_num AS Int64;
-                                                                                            
                                                     UPSERT INTO write_file_progress(name, line_num) VALUES ($name, $line_num);
                                                     """,
                                             Params.of("$name", PrimitiveValue.newText(pathFile.toString()),
@@ -153,6 +154,8 @@ public class Application {
                         ).join().expectSuccess();
                     }
             );
+            sendStopMessage(topicClient, lineNumber.getAndIncrement());
+
 
             readerJob.join();
             reader.shutdown();
@@ -161,13 +164,36 @@ public class Application {
         }
     }
 
-    private static void runTransactionReadJob(int lineCount, SyncReader reader, SessionRetryContext retryCtx) {
+    private static void sendStopMessage(TopicClient topicClient, long lastSeqNo) {
+        var writer = topicClient.createSyncWriter(
+                WriterSettings.newBuilder()
+                        .setProducerId("producer-file")
+                        .setTopicPath("file_topic")
+                        .build()
+        );
+        writer.initAndWait();
+        writer.send(
+                Message.newBuilder()
+                        .setSeqNo(lastSeqNo)
+                        .setData(("STOP").getBytes(StandardCharsets.UTF_8))
+                        .build()
+        );
+        writer.flush();
+        try {
+            writer.shutdown(10, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void runTransactionReadJob(SyncReader reader, SessionRetryContext retryCtx) {
         LOGGER.info("Started read worker!");
 
-        for (int i = 0; i < lineCount; i++) {
+        var next = true;
+        while (next) {
             try {
                 // Обрабатываем сообщения в транзакционном режиме
-                retryCtx.supplyStatus(session -> {
+                next = retryCtx.supplyResult(session -> {
                     // Начинаем интерактивную транзакцию
                     var transaction = session.beginTransaction(TxMode.SERIALIZABLE_RW).join().getValue();
                     var tx = new TransactionHelper(transaction);
@@ -187,7 +213,14 @@ public class Application {
                     // Если сообщение не найдено, то откатываем транзакцию
                     if (message == null) {
                         transaction.rollback().join();
-                        return CompletableFuture.completedFuture(Status.SUCCESS);
+                        return CompletableFuture.completedFuture(Result.success(true));
+                    }
+
+                    var messageStr = new String(message.getData(), StandardCharsets.UTF_8);
+                    if (messageStr.equals("STOP")) {
+                        LOGGER.info("Stopped read worker!");
+
+                        return CompletableFuture.completedFuture(Result.success(false));
                     }
 
                     var messageData = new String(message.getData(), StandardCharsets.UTF_8).split(":");
@@ -213,15 +246,12 @@ public class Application {
                     // если в операциях теперь участвует очередь сообщений (топик).
                     transaction.commit().join();
 
-                    return CompletableFuture.completedFuture(Status.SUCCESS);
-                }).join().expectSuccess();
-
+                    return CompletableFuture.completedFuture(Result.success(true));
+                }).join().getValue();
             } catch (Exception e) {
                 LOGGER.error(e.getMessage());
             }
         }
-
-        LOGGER.info("Stopped read worker!");
     }
 
     private static void printTableFile(QueryServiceHelper queryServiceHelper) {
@@ -248,13 +278,13 @@ public class Application {
                     length Int64 NOT NULL,
                     PRIMARY KEY (name, line)
                 );
-                     
+                
                 CREATE TABLE IF NOT EXISTS write_file_progress (
                     name Text NOT NULL,
                     line_num Int64 NOT NULL,
                     PRIMARY KEY (name)
                 );
-                           
+                
                 CREATE TOPIC IF NOT EXISTS file_topic (
                     CONSUMER file_consumer
                 ) WITH(

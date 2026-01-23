@@ -49,21 +49,19 @@ public class IssueYdbRepository {
     /**
      * Пакетное добавление нескольких тикетов за один запрос
      */
-    public void saveAll(List<TitleAuthor> titleAuthors) {
+    public void saveAll(List<String> issues) {
 
         // Тут описывается структура данных, которая будет служить виртуальной таблицей.
         var structType = StructType.of(
                 "id", PrimitiveType.Int64,
                 "title", PrimitiveType.Text,
-                "author", OptionalType.of(PrimitiveType.Text),
                 "created_at", PrimitiveType.Timestamp
         );
 
         var listIssues = Params.of("$args", ListType.of(structType).newValue(
-                titleAuthors.stream().map(issue -> structType.newValue(
+                issues.stream().map(issue -> structType.newValue(
                         "id", PrimitiveValue.newInt64(ThreadLocalRandom.current().nextLong()),
-                        "title", PrimitiveValue.newText(issue.title()),
-                        "author", OptionalType.of(PrimitiveType.Text).newValue(PrimitiveValue.newText(issue.author())),
+                        "title", PrimitiveValue.newText(issue),
                         "created_at", PrimitiveValue.newTimestamp(Instant.now())
                 )).toList()
         ));
@@ -72,7 +70,6 @@ public class IssueYdbRepository {
                         DECLARE $args AS List<Struct<
                         id: Int64,
                         title: Text,
-                        author: Text?, -- тут знак вопроса означает, что в Timestamp может быть передан NULL
                         created_at: Timestamp,
                         >>;
 

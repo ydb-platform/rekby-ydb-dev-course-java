@@ -10,6 +10,8 @@ import tech.ydb.query.tools.SessionRetryContext;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.PrimitiveValue;
 
+import javax.annotation.Nullable;
+
 /**
  * Репозиторий для работы с тикетами в базе данных YDB
  * Реализует операции добавления и чтения тикетов
@@ -59,6 +61,29 @@ public class IssueYdbRepository {
         );
 
         return new Issue(id, title, now);
+    }
+
+    /**
+     * Возвращает тикет по заданному id
+     *
+     * @return найденный тикет или null, если тикет с указанным id не найден
+     */
+    @Nullable
+    public Issue findById(long id) {
+        // Выполняем SELECT запрос в режиме SNAPSHOT_RO для чтения данных
+        // Этот режим сообщает серверу, что это транзакция только для чтения.
+        // Это позволяет снизить накладные расходы на подготовку к изменениям и просто читать данные из
+        // одного снимка базы данных.
+        var resultSet = queryServiceHelper.executeQuery("SELECT id, title, created_at FROM issues WHERE id=$id;",
+                TxMode.SNAPSHOT_RO, Params.of("$id", PrimitiveValue.newInt64(id)));
+
+        var resultSetReader = resultSet.getResultSet(0);
+
+        return resultSetReader.next() ? new Issue(
+                resultSetReader.getColumn(0).getInt64(),
+                resultSetReader.getColumn(1).getText(),
+                resultSetReader.getColumn(2).getTimestamp()
+        ) : null;
     }
 
     /**

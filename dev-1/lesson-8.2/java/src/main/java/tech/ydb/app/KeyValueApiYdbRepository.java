@@ -113,10 +113,6 @@ public class KeyValueApiYdbRepository {
         while (resultSetReader.next()) {
             var id = resultSetReader.getColumn(0).getInt64();
 
-            if (!Long.toString(id).contains("0")) {
-                continue;
-            };
-
             long linksCount;
             if (resultSetReader.getColumnCount() > 4) {
                 linksCount = resultSetReader.getColumn(4).getInt64();
