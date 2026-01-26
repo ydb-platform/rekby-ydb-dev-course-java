@@ -21,7 +21,7 @@ public class Application {
      * Строка подключения к локальной базе данных YDB
      * Формат: grpc://<хост>:<порт>/<путь к базе данных>
      */
-    private static final String CONNECTION_STRING = "grpc://localhost:2136/local";
+    private static final String CONNECTION_STRING = "grpc://127.0.0.1:2136/local";
 
     public static void main(String[] args) {
         // Создаем драйвер для подключения к YDB через gRPC
